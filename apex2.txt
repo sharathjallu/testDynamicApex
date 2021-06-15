@@ -88,6 +88,10 @@ public with sharing class ShowRecentRecordsApex {
         system.debug('recWrpObj::'+JSON.serialize(recWrpObj));
         return recWrpObj;
     }
+    @AuraEnabled
+    public static void upsertMetadata(List<String> selectedFieldsList, String selectedObj){  
+        system.debug('selectedFieldsList:'+selectedFieldsList);
+    }
     public class SobjectWrapper{
         @AuraEnabled public String APIName;
         @AuraEnabled public String Label;
