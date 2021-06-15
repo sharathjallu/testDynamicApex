@@ -68,6 +68,7 @@
         editRecordEvent.fire();
     },
     handleFieldsDisplay: function(component,event,helper){
+        component.set("v.errorMessage",'');
         var btnlabel = component.get('v.fieldsDisplayButton');
         var selectedFieldsList =component.get('v.selectedfields');
         var selectedObj = component.find("selectObjectId").get("v.value");
