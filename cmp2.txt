@@ -54,8 +54,9 @@
                                        selectedLabel="Selected Fields" 
                                        options="{!v.options}" 
                                        value="{!v.selectedfields}"
-                                       onchange="{! c.handleFieldsDisplay }"
                                        />
+                <lightning:button label="Save Preferences" onclick="{!c.handleFieldsDisplay}" />                            
+                
             </aura:if>
             <!--Render Data only when records are returned-->
             <aura:if isTrue="{! not(empty(v.RecordsWrapper.sobjRecordList))}">  
