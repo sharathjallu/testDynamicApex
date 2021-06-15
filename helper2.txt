@@ -1,0 +1,68 @@
+({
+    fetchRecords : function(component,event,helper,selectedObj,recordLimit) {
+        component.set("v.spinner",true);//starting spinner
+        component.set("v.selectedSObject",selectedObj);
+        var selectedfields=component.get("v.selectedfields");
+        
+        var action= component.get("c.getAccessibleFieldsRecords");            
+        action.setParams({
+            "objectAPIName": selectedObj,
+            "recordLimit": recordLimit
+        });
+        action.setCallback(this, function(response) {
+            var state = response.getState();
+            if (state === "SUCCESS") {           
+                var RecordsWrapper = response.getReturnValue(); 
+                if(RecordsWrapper!=null){
+                    component.set("v.RecordsWrapper",RecordsWrapper);
+                    //checking for accessibleFieldsList and forming dynamic fields
+                    if(RecordsWrapper.accessibleFieldsList.length>0){
+                        var items = [];
+                        for (var key in RecordsWrapper.accessibleFieldsList) {
+                            var item = {
+                                "label": RecordsWrapper.accessibleFieldsList[key],
+                                "value": RecordsWrapper.accessibleFieldsList[key]
+                            };
+                            items.push(item);
+                        }
+                        component.set("v.options", items.sort());
+                        
+                    }else{
+                        component.set("v.errorMessage",'No Accessible Fields Found');
+                        component.set("v.spinner",false);//stopping spinner
+                        return;
+                    }
+                    //checking for records returned in sobjRecordList
+                    if(RecordsWrapper.sobjRecordList.length==0){
+                        component.set("v.errorMessage",'No Accessible Records Found');
+                        component.set("v.spinner",false);//stopping spinner
+                        return;
+                    }
+                    //setting default selected fields
+                    component.set("v.selectedfields", ["Name", "CreatedDate", "CreatedById"]);
+                    //converting Map values into list
+                    var arrayOfMapKeys = [];
+                    for (var key in RecordsWrapper.editAccessMap) {
+                        arrayOfMapKeys.push({Id:key, Editable:RecordsWrapper.editAccessMap[key]});
+                    }  
+                    component.set("v.RecordsWrapper.editAccessMap",arrayOfMapKeys);
+                    console.log('RecordsWrapper',RecordsWrapper);                 }                               
+            }                    
+            else if (state === "ERROR") {
+                var errors = response.getError();
+                if (errors) {
+                    if (errors[0] && errors[0].message) {
+                        console.log("Error message: " + errors[0].message);
+                        component.set("v.errorMessage",errors[0].message);
+                    }
+                } 
+                else {
+                    console.log("Unknown Error");
+                    component.set("v.errorMessage",'Unknown Error');
+                }
+            }
+            component.set("v.spinner",false);//stopping spinner
+        });
+        $A.enqueueAction(action);
+    }
+})

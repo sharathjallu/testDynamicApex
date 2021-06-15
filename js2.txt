@@ -1,0 +1,84 @@
+({
+    doinit : function(component, event, helper) {   
+        component.set("v.spinner",true);//starting spinner
+        //Calling Server to get All Accessible Objects for the Logged In User
+        var selectedfields=component.get("v.selectedfields");
+        console.log('selectedfields:',selectedfields);
+        var action= component.get("c.getUserAccessibleSObjectsName");
+         action.setParams({
+            "selectedfields": selectedfields
+        });
+        action.setCallback(this, function(response) {
+            var state = response.getState();
+            if (state === "SUCCESS") {           
+                var objects = response.getReturnValue();  
+                if(objects!=null && objects.length>0){
+                    console.log('objects'+objects.length);                                   
+                    component.set('v.sObjects', objects);                    
+                }else{
+                    console.log('No Objects Found');
+                } 
+            }                    
+            else if (state === "ERROR") {
+                var errors = response.getError();
+                if (errors) {
+                    if (errors[0] && errors[0].message) {
+                        console.log("Error message: " + errors[0].message);
+                        if(errors[0].message.includes('You do not have access to the Apex class'))
+                        	component.set("v.errorMessage",'You Donot Have Sufficient Privileges to call Apex. Please Contact your System Administrator');
+                        else
+                        component.set("v.errorMessage",errors[0].message);
+                    }
+                } 
+                else {
+                    console.log("Unknown Error");
+                    component.set("v.errorMessage",'Unknown Error');
+                }
+            }
+            component.set("v.spinner",false);//stopping spinner
+        });
+        $A.enqueueAction(action);
+    },
+    handleObjectChange: function(component,event,helper){
+        //Resetting Values
+        component.set("v.errorMessage",'');
+        component.set("v.RecordsWrapper","");
+        component.set("v.options","");
+        component.set("v.selectedfields", ["Name", "CreatedDate", "CreatedById"]);
+        
+        if(component.get("v.recordLimit") == '' || component.get("v.recordLimit") <1){
+            component.set("v.recordLimit",5); //setting default value when invalid
+        }       
+        if(!$A.util.isUndefinedOrNull(component.find("selectObjectId"))){ 
+            var selectedObj = component.find("selectObjectId").get("v.value");
+            component.set("v.selectedSObject",selectedObj);
+            var recordLimit = component.get("v.recordLimit");
+            //Calling helper to get records of selected Object
+            if(selectedObj)
+                helper.fetchRecords(component,event,helper,selectedObj,recordLimit);
+        }
+    },
+    handleEdit: function(component,event,helper){
+        var recordId= event.getSource().get("v.value")
+        //navigating to standard Edit Record Page using Record Id
+        var editRecordEvent = $A.get("e.force:editRecord");
+        editRecordEvent.setParams({
+            "recordId": recordId
+        });
+        editRecordEvent.fire();
+    },
+    handleFieldsDisplay: function(component,event,helper){
+        var btnlabel = component.get('v.fieldsDisplayButton');
+        var selectedFieldsList =component.get('v.selectedfields');
+        var selectedObj = component.find("selectObjectId").get("v.value");
+        component.set("v.selectedSObject",selectedObj);
+        console.log('selectedFieldsList',selectedFieldsList);
+        helper.upsertMetada(component,event,helper,selectedFieldsList,selectedObj);
+        
+        if(btnlabel=='Select Fields To Display'){
+            component.set('v.fieldsDisplayButton','Hide Fields To Display');
+        }else{
+            component.set('v.fieldsDisplayButton','Select Fields To Display');
+        }        
+    },    
+})

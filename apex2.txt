@@ -1,0 +1,100 @@
+public with sharing class ShowRecentRecordsApex {
+    @AuraEnabled(cacheable=true)
+    public static List<SobjectWrapper> getUserAccessibleSObjectsName(){
+        List<SobjectWrapper> wrpObjList = new List<SobjectWrapper>();
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe(); 
+        List<String> objectApiNames = new List<String>();
+        
+        for(string objectApi: globalDescribe.keyset()){             
+            objectApiNames.add(objectApi);
+            objectApiNames.sort();
+        }
+        system.debug('objectApiNames size:'+objectApiNames.size());
+        if(objectApiNames.size()>0){
+            Schema.DescribeSobjectResult[] results  = Schema.describeSObjects(objectApiNames);    
+            for(Schema.DescribeSobjectResult describeResult  : results){  
+                //system.debug('describeResult:'+describeResult);
+                if(describeResult.isAccessible() && describeResult.isQueryable()) {
+                    SobjectWrapper wrpObj = new SobjectWrapper();
+                    wrpObj.APIName=describeResult.getName();
+                    wrpObj.Label=describeResult.getLabel();
+                    wrpObjList.add(wrpObj);
+                }
+            }
+        }
+        
+        system.debug('wrpObjList:'+wrpObjList);
+        return wrpObjList;
+    }
+    @AuraEnabled(cacheable=true)
+    public static RecordsWrapper getAccessibleFieldsRecords(String objectAPIName, Integer recordLimit){        
+        if(recordLimit<0){
+            recordLimit=5; //setting minimum recent records
+        }else if(recordLimit>200){
+            recordLimit=200; //setting maximum recent records
+        }
+        system.debug('objectAPIName:'+objectAPIName+' :recordLimit:'+recordLimit);
+        objectAPIName = String.escapeSingleQuotes(objectAPIName);
+        Map<String, Schema.SObjectType> schemaMap = Schema.getGlobalDescribe();
+        Map<String, Schema.SObjectField> fieldMap = schemaMap.get(objectAPIName).getDescribe().fields.getMap();
+        List<String> accessibleFieldsList=  new List<String>();
+        List<String> apiNames =  new list<String>();
+        system.debug('fieldMap:'+fieldMap);
+        
+        //fetching all accessible fields and storing in List
+        for (String s : fieldMap.keySet()) {
+            if (fieldMap.get(s).getDescribe().isAccessible()) {
+                accessibleFieldsList.add(fieldMap.get(s).getDescribe().getName());
+            }
+        }
+        //forming Dynamic  Query
+        String queryString = 'SELECT ID FROM ';       		
+        queryString += objectAPIName;
+        queryString += ' WITH SECURITY_ENFORCED';
+        queryString += ' ORDER BY LastModifiedDate DESC';        
+        queryString += ' LIMIT '+recordLimit;
+        system.debug('queryString:'+queryString);
+        List<sObject> sobjRecordList = Database.query(queryString);
+        system.debug('sobjRecordList size:'+sobjRecordList.size()+' sobjRecordList->'+sobjRecordList);
+        
+        //checking for Edit Access for all queried results
+        Set<String> recordIdSet = new Set<String>();
+        for(sObject obj :sobjRecordList){
+            recordIdSet.add(obj.Id);
+        }
+        Map<Id,UserRecordAccess> recordAccessMap = new Map<Id,UserRecordAccess>([select RecordId from UserRecordAccess 
+                                            where UserId =: UserInfo.getUserId()
+                                            and RecordId =: recordIdSet 
+                                            and HasEditAccess = true
+                                            limit 200]); //set limit 200 since Max allowed=200
+        system.debug('recordAccessMap:'+recordAccessMap);
+        //sending records which are editable
+        Map<Id,Boolean> editAccessMap = new Map<Id,Boolean>() ;
+        for(sObject obj:sobjRecordList){
+            if(recordAccessMap.get(obj.Id)!=null){
+                editAccessMap.put(obj.Id,true);
+            }else{
+                editAccessMap.put(obj.Id,false);
+            }
+        }
+        system.debug('editAccessMap:'+editAccessMap);
+        
+        //Creating Wrapper Object Return Type
+        RecordsWrapper recWrpObj = new RecordsWrapper();
+        recWrpObj.sobjRecordList=sobjRecordList;
+        recWrpObj.accessibleFieldsList=accessibleFieldsList;
+        recWrpObj.editAccessMap=editAccessMap;
+        
+        system.debug('recWrpObj::'+JSON.serialize(recWrpObj));
+        return recWrpObj;
+    }
+    public class SobjectWrapper{
+        @AuraEnabled public String APIName;
+        @AuraEnabled public String Label;
+    }
+    public class RecordsWrapper{
+        @AuraEnabled public List<sObject> sobjRecordList;
+        @AuraEnabled public List<String> accessibleFieldsList;
+        @AuraEnabled public Map<Id,Boolean> editAccessMap;
+    }
+}

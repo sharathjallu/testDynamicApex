@@ -1,0 +1,91 @@
+<aura:component controller="ShowRecentRecordsApex" 
+                implements="flexipage:availableForAllPageTypes" 
+                access="global" >
+    <!--Defining Component Attributes-->
+    <aura:attribute name="spinner" type="boolean" default="false"/>
+    <aura:attribute name="selectedSObject" type="String" description="Used to store selected Sobject API Name"/>
+    <aura:attribute name="sObjects" type="Object[]" description="Used to store All Sobject Types from Schema"/>
+    <aura:attribute name="RecordsWrapper" type="Object" description="Used to store Records List and Accessible Fields List returned for selected Sobject"/>
+    <aura:attribute name="recordLimit" type="Integer" default="5" description="Used to store Soql Records Limit"/>
+    <aura:attribute name="selectedfields" type="List" default="Name,CreatedDate,CreatedById" description="Used to store all Sobject fields"/>
+    <aura:attribute name="options" type="List" default="[]" description="Used to store only selected Sobject fields"/>
+    <aura:attribute name="currentUser" type="User"/>
+    <aura:attribute name="fieldsDisplayButton" type="String" default="Select Fields To Display"/>
+    <aura:attribute name="errorMessage" type="string" default = "" />
+    <!--Defining Handlers-->
+    <aura:handler name="init" action="{!c.doinit}" value="{!this}"/>
+    <!--HTML Body Starts -->
+    <lightning:card title="Recent Records">
+        <aura:if isTrue="{!v.spinner}">
+            <lightning:spinner alternativeText="Loading" />
+        </aura:if>       
+        <!--Displaying RecordLimit in the Card Actions PlaceHolder-->
+        <aura:set attribute="actions">
+            <lightning:input type="number" name="recordLimit" label="Record Limit" 
+                             value="{!v.recordLimit}" onchange="{!c.handleObjectChange}"/>
+        </aura:set>
+        <div class="slds-p-horizontal_medium">
+            <!--Html for Select Object-->
+            <lightning:select aura:id="selectObjectId" label="Select Object" onchange="{!c.handleObjectChange}"> >
+                <option value="" text="- None -" /> 
+                <aura:iteration items="{!v.sObjects}" var="obj">
+                    <option text="{!obj.Label}" value="{!obj.APIName}"  />  
+                </aura:iteration>
+            </lightning:select>            
+            <br/>  
+            <!--Using Standard recordData to get current User Profile-->
+            <force:recordData aura:id="recordLoader" recordId="{!$SObjectType.CurrentUser.Id}"  
+                              fields="Profile.Name" targetFields="{!v.currentUser}"/>
+            <!--Render button only for System Administrator-->
+            <aura:if isTrue="{!v.currentUser.Profile.Name=='System Administrator'}">   
+                <lightning:button label="{!v.fieldsDisplayButton}" onclick="{!c.handleFieldsDisplay}" />                            
+                <br/>
+            </aura:if>
+            <!--Render  when Error-->
+            <aura:if isTrue="{! !empty(v.errorMessage)}">
+                <ui:message title="Error" severity="error" closable="true">
+                    {!v.errorMessage}
+                </ui:message>
+            </aura:if>
+            <!--Render dualListbox based on Toggling Label-->
+            <aura:if isTrue="{!v.fieldsDisplayButton=='Hide Fields To Display'}">   
+                <lightning:dualListbox aura:id="selectOptions" name="Select Fields"  label="Select Fields" 
+                                       sourceLabel="Available Fields" 
+                                       selectedLabel="Selected Fields" 
+                                       options="{!v.options}" 
+                                       value="{!v.selectedfields}"
+                                       onchange="{! c.handleFieldsDisplay }"
+                                       />
+            </aura:if>
+            <!--Render Data only when records are returned-->
+            <aura:if isTrue="{! not(empty(v.RecordsWrapper.sobjRecordList))}">  
+                <div class="slds-p-top_x-small">
+                    <aura:iteration items="{!v.RecordsWrapper.sobjRecordList}" var="records">                     
+                        <lightning:recordViewForm  objectApiName="{!v.selectedSObject}" recordId="{!records.Id}">
+                            <div class="slds-box slds-theme_default">
+                                <!--Show Edit Button based on Edit Access-->
+                                <aura:iteration items="{!v.RecordsWrapper.editAccessMap}" var="rec">                                        
+                                    <aura:if isTrue="{!and(rec.Id==records.Id,rec.Editable==true)}">
+                                        <div class="slds-grid slds-wrap">
+                                            <lightning:button value="{!records.Id}" label="Edit" onclick="{!c.handleEdit}" />
+                                        </div>
+                                    </aura:if>
+                                </aura:iteration>  
+                                <!--Show fields based on selectedfields list-->
+                                <div class="slds-grid slds-wrap">
+                                    <aura:iteration items="{!v.selectedfields}" var="field">                                        
+                                        <div class="slds-col slds-size_1-of-3">
+                                            <lightning:outputField fieldName="{!field}" />
+                                        </div>
+                                    </aura:iteration>
+                                </div>  
+                            </div>
+                        </lightning:recordViewForm>
+                        <br/>
+                    </aura:iteration>              
+                </div>
+            </aura:if>
+        </div>		
+    </lightning:card>
+    <!--HTML Body ends -->
+</aura:component>
