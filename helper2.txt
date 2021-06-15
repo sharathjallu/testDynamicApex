@@ -64,5 +64,33 @@
             component.set("v.spinner",false);//stopping spinner
         });
         $A.enqueueAction(action);
+    },
+    upsertMetada : function(component,event,helper,selectedFieldsList,selectedObj){
+        var action= component.get("c.upsertMetadata");            
+        action.setParams({
+            "selectedFieldsList": selectedFieldsList,
+            "selectedObj": selectedObj
+        });
+        action.setCallback(this, function(response) {
+            var state = response.getState();
+            if (state === "SUCCESS") { 
+                
+            }                    
+            else if (state === "ERROR") {
+                var errors = response.getError();
+                if (errors) {
+                    if (errors[0] && errors[0].message) {
+                        console.log("Error message: " + errors[0].message);
+                        component.set("v.errorMessage",errors[0].message);
+                    }
+                } 
+                else {
+                    console.log("Unknown Error");
+                    component.set("v.errorMessage",'Unknown Error');
+                }
+            }
+            component.set("v.spinner",false);//stopping spinner
+        });
+        $A.enqueueAction(action);
     }
 })
